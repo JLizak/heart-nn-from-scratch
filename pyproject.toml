@@ -32,6 +32,13 @@ extend-exclude = ["notebooks"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "NPY"]
 
+[tool.ruff.lint.per-file-ignores]
+# The MLP studies use the global NumPy seed, changing it would change the reported results
+"src/heartnn/models/mlp.py" = ["NPY002"]
+"src/heartnn/mlp_*.py" = ["NPY002"]
+"src/heartnn/gradcheck.py" = ["NPY002"]
+"tests/test_mlp.py" = ["NPY002"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
