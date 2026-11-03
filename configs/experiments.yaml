@@ -1,0 +1,34 @@
+base:
+  lr: 0.1
+  n_epochs: 5000
+  tol: 1.0e-6
+  init: normal
+  init_scale: 0.01
+  random_state: 0
+
+studies:
+  lr:
+    description: Learning rate. No tol, so a small lr is not mistaken for convergence.
+    params:
+      tol: null
+    grid:
+      lr: [0.001, 0.01, 0.1, 1.0, 10.0]
+
+  init:
+    description: Initialization distribution and scale.
+    grid:
+      - init: [zeros]
+      - init: [normal, uniform]
+        init_scale: [0.01, 0.1, 1.0, 10.0]
+
+  tol:
+    description: Stopping criterion, from none to very loose.
+    grid:
+      tol: [null, 1.0e-8, 1.0e-6, 1.0e-4, 1.0e-3]
+
+  tol_small_lr:
+    description: The same tolerances with a small lr, where the loss decreases slowly.
+    params:
+      lr: 0.001
+    grid:
+      tol: [null, 1.0e-6, 1.0e-4]
