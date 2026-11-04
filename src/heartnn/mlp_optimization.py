@@ -16,6 +16,7 @@ from heartnn.models.functional import binary_cross_entropy
 from heartnn.models.mlp import MLP
 from heartnn.models.optim import SGD, Adam
 from heartnn.preprocessing import load_column_splits
+from heartnn.tracking import MLP_EXPERIMENT, log_variant, setup_experiment
 
 SEEDS = (0, 1, 2)
 TOL = 1e-6
@@ -89,7 +90,7 @@ def tol_stop_epoch(losses):
     return None
 
 
-def run_study(name, title, configs, panels, splits):
+def run_study(name, title, configs, panels, splits, extra_plot=None):
     """configs: list of (label, kwargs for train). Returns {label: [history per seed]}."""
     print(f"== {name}")
     runs = {}
@@ -99,7 +100,34 @@ def run_study(name, title, configs, panels, splits):
         test_acc = np.nanmean([h["test"]["accuracy"] for h in runs[label]])
         print(f"   {label}: train loss {train_loss:.3f}, test acc {test_acc:.3f}")
     plot_study(name, title, runs, panels)
+    figures = [FIG_DIR / f"{name}.png"]
+    if extra_plot is not None:
+        figures.append(extra_plot(runs))
+    log_study(name, configs, runs, figures)
     return runs
+
+
+def log_study(name, configs, runs, figures):
+    curve_names = ("train_loss", "val_loss", "val_acc", "grad_norm", "updates", "time")
+    for label, params in configs:
+        optimizer = params["optimizer"]()
+        logged = {k: v for k, v in params.items() if k != "optimizer"}
+        logged.update(optimizer=type(optimizer).__name__, lr=optimizer.lr)
+        seed_runs = [
+            {
+                "seed": seed,
+                "steps": history["epoch"],
+                "curves": {key: history[key] for key in curve_names},
+                "final": {
+                    **{f"test_{k}": v for k, v in history["test"].items()},
+                    **{f"init_grad_norm_layer_{i}": norm
+                       for i, norm in enumerate(history["init_grad_norms"], start=1)},
+                    "tol_stop_epoch": history["tol_stop"],
+                },
+            }
+            for seed, history in zip(SEEDS, runs[label], strict=True)
+        ]
+        log_variant(name, label, logged, seed_runs, figures=figures)
 
 
 def make_params(params):
@@ -144,8 +172,10 @@ def plot_init_grad_norms(runs):
     ax.set_xticks(np.arange(len(norms)), [f"warstwa {k + 1}" for k in range(len(norms))])
     style_axis(ax, "Norma ‖dL/dW‖ w każdej warstwie przed uczeniem", None)
     ax.legend(frameon=False, labelcolor=TEXT)
-    fig.savefig(FIG_DIR / "p2_init_grad_norms.png", dpi=150)
+    path = FIG_DIR / "p2_init_grad_norms.png"
+    fig.savefig(path, dpi=150)
     plt.close(fig)
+    return path
 
 
 def style_axis(ax, title, xlabel):
@@ -189,6 +219,7 @@ def summarize(runs):
 def main():
     np.seterr(all="ignore")
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+    setup_experiment(MLP_EXPERIMENT)
     splits = load_column_splits()
     d = splits[0].shape[1]
 
@@ -231,8 +262,7 @@ def main():
         [(label, dict(hidden_sizes=(d,) * 4, optimizer=lambda: SGD(0.01), batch_size=32,
                       n_epochs=200, **p)) for label, p in init_configs],
         [("train_loss", "epoch", "Strata BCE — trening", False, True)] + loss_panels[1:],
-        splits)
-    plot_init_grad_norms(runs)
+        splits, extra_plot=plot_init_grad_norms)
     results["init"] = summarize(runs)
 
     # 3. Plain gradient vs Adam: 6 hidden layers, mini-batch 32, small and He initialization

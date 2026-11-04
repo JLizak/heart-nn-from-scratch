@@ -58,13 +58,18 @@ three seeds.
 
 ## Experiment tracking with MLflow
 
-The logistic regression studies log each variant as one run in a local SQLite store:
+All studies are logged to a local SQLite store, in two experiments:
+
+- `logreg-from-scratch`: one run per variant.
+- `mlp-from-scratch`: one parent run per configuration, with the mean and std over seeds and the
+  study figures, and a nested run per seed with the full learning curves. Each run has a `study`
+  tag, so one study can be selected with the filter `tags.study = 'depth'`.
 
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-The MLP studies write their summaries to `reports/figures/results.md` and `results2.json`.
+The MLP studies also write their summaries to `reports/figures/results.md` and `results2.json`.
 
 ## Reproduce
 

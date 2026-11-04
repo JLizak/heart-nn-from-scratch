@@ -12,6 +12,7 @@ from heartnn.models.functional import binary_cross_entropy
 from heartnn.models.mlp import MLP
 from heartnn.preprocessing import load_column_splits
 from heartnn.settings import FIGURES_DIR
+from heartnn.tracking import MLP_EXPERIMENT, log_variant, setup_experiment
 
 LR = 0.01
 INIT_STD = 0.01
@@ -72,12 +73,32 @@ def run_study(name, title, configs):
         print(f"   {label}: val acc {np.mean([h['val_acc'][-1] for h in runs[label]]):.3f}")
 
     plot_study(name, title, runs)
+    log_study(name, configs, runs)
 
     rows = []
     for label, histories in runs.items():
         keys = ("train_loss", "val_loss", "train_acc", "val_acc", "test_acc")
         rows.append((name, label, *(final_values(histories, key) for key in keys)))
     return rows
+
+
+def log_study(name, configs, runs):
+    curve_names = ("train_loss", "val_loss", "train_acc", "val_acc")
+    for label, hidden_sizes, normalize in configs:
+        params = {
+            "hidden_sizes": hidden_sizes, "normalize": normalize, "lr": LR, "init": "normal",
+            "init_std": INIT_STD, "n_epochs": N_EPOCHS, "eval_every": EVAL_EVERY,
+        }
+        seed_runs = [
+            {
+                "seed": seed,
+                "steps": history["epoch"],
+                "curves": {key: history[key] for key in curve_names},
+                "final": {"test_acc": history["test_acc"]},
+            }
+            for seed, history in zip(SEEDS, runs[label], strict=True)
+        ]
+        log_variant(name, label, params, seed_runs, figures=[FIG_DIR / f"{name}.png"])
 
 
 def plot_study(name, title, runs):
@@ -127,6 +148,7 @@ def write_table(rows):
 
 def main():
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+    setup_experiment(MLP_EXPERIMENT)
     n_features = load_column_splits()[0].shape[1]
 
     rows = []

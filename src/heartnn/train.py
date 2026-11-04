@@ -5,9 +5,8 @@ import mlflow
 from heartnn.evaluation import evaluate
 from heartnn.models.logistic import LogisticReg
 from heartnn.preprocessing import load_splits
-from heartnn.tracking import MlflowTracker
+from heartnn.tracking import TRACKING_URI, MlflowTracker
 
-TRACKING_URI = "sqlite:///mlflow.db"
 EXPERIMENT = "logreg-from-scratch"
 
 
